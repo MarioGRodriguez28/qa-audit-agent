@@ -12,6 +12,7 @@ const UNVERIFIABLE_STATUS = [401, 403, 429, 999];
 const passed = (detail = '') => ({ status: 'passed', detail });
 const failed = (detail) => ({ status: 'failed', detail });
 const skipped = (detail) => ({ status: 'skipped', detail });
+const short = (text, max = 100) => (text.length > max ? `${text.slice(0, max)}...` : text);
 const trimSlash = (p) => (p.length > 1 ? p.replace(/\/$/, '') : p);
 
 async function pool(items, size, worker) {
@@ -50,9 +51,27 @@ const RUNNERS = {
     withPage(ctx, c, async (page) => {
       const errors = [];
       const bad = [];
-      page.on('console', (m) => m.type() === 'error' && !m.text().startsWith('Failed to load resource') && errors.push(m.text()));
+      let ignored = 0;
+      const own = (url) => {
+        try {
+          return new URL(url).origin === ctx.model.origin;
+        } catch {
+          return true;
+        }
+      };
+      // Problems caused by third-party scripts (analytics, captchas) are not the site's own, except CSP violations,
+      // which come from the site's own policy.
+      page.on('console', (m) => {
+        if (m.type() !== 'error' || m.text().startsWith('Failed to load resource')) return;
+        if (!own(m.location().url) && !/content security policy/i.test(m.text())) ignored += 1;
+        else errors.push(m.text());
+      });
       page.on('pageerror', (e) => errors.push(e.message));
-      page.on('response', (r) => r.status() >= 400 && r.request().resourceType() !== 'document' && bad.push(`${r.status()} ${r.url()}`));
+      page.on('response', (r) => {
+        if (r.status() < 400 || r.request().resourceType() === 'document') return;
+        if (own(r.url())) bad.push(`${r.status()} ${short(r.url())}`);
+        else ignored += 1;
+      });
       const response = await open(ctx, page, c.url);
       await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
       const problems = [];
@@ -60,9 +79,9 @@ const RUNNERS = {
         problems.push(`status ${response?.status()}${c.from ? `, linked from ${pathOf(c.from)}` : ''}`);
       }
       if (!(await page.title()).trim()) problems.push('empty title');
-      if (errors.length) problems.push(`${errors.length} console error(s): ${errors.slice(0, 2).join(' | ')}`);
+      if (errors.length) problems.push(`${errors.length} console error(s): ${errors.slice(0, 2).map((e) => short(e, 160)).join(' | ')}`);
       if (bad.length) problems.push(`resources failed: ${bad.slice(0, 3).join('; ')}`);
-      return problems.length ? failed(problems.join('; ')) : passed();
+      return problems.length ? failed(problems.join('; ')) : passed(ignored ? `${ignored} third-party issue(s) ignored` : '');
     }),
 
   'page-structure': (ctx, c) =>

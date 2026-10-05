@@ -162,7 +162,7 @@ function generateTests(model, { baseline } = {}) {
   const apiSeen = new Set();
   for (const page of model.pages) {
     for (const call of page.apiCalls) {
-      if (apiSeen.has(call.url) || apiSeen.size >= LIMITS.api || call.status >= 400) continue;
+      if (apiSeen.has(call.url) || apiSeen.size >= LIMITS.api || call.status >= 400 || !call.shape) continue;
       apiSeen.add(call.url);
       const baselineShape = baseline?.api?.[call.url];
       add('api', 'api-contract', `API contract: GET ${pathOf(call.url)} (seen on ${pathOf(page.url)})`, {

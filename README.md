@@ -77,7 +77,7 @@ What it does, with no test written by hand:
 
 | Test | What it asserts |
 |---|---|
-| Page loads | status below 400, a title, no console errors, no failed resources |
+| Page loads | status below 400, a title, no console errors, no failed resources. Problems caused by third-party scripts (analytics, captchas) are counted but do not fail the test; Content Security Policy violations always count, because the policy is the site's own |
 | Page structure | exactly one h1, a `lang` attribute, a viewport tag |
 | Accessibility | no serious or critical axe-core violations |
 | Links | each linked URL that was not crawled responds below 400 |
@@ -85,7 +85,7 @@ What it does, with no test written by hand:
 | Form: required | an empty form is blocked and every required field reports it |
 | Form: validation | email, URL, number range and minimum length reject bad input and accept good input |
 | Form: valid data | a correctly filled form passes validation |
-| API contract | each JSON response keeps the shape it had when seen |
+| API contract | each JSON response keeps the shape it had when seen (calls that do not return JSON, such as framework prefetches, are not turned into contracts) |
 | Baseline | against a saved run: no page lost, titles and headings unchanged, no link or form field removed |
 
 3. **Runs them** and writes `report.md` (identical problems across pages are reported once, with the pages they affect), `report.json`, a screenshot for each failure and `site-model.json`.
@@ -143,7 +143,7 @@ Known limit: addresses are checked before each request, not pinned during it, so
 npm test
 ```
 
-104 tests: scoring, schema validation, SSRF guard, the API audit end to end with the network mocked, and the web audit running a real Chromium against a local fixture server (clean page, broken page, error status, private targets, blocked private sub-requests, and redirects to private addresses including chains), the HTTP server (validation, rate limit, concurrency, host and content-type checks), the interface in a real browser, including checks that it passes its own web audit in light and dark mode and does not overflow on a phone, and the site exploration against a fixture site with known defects (what it finds, what it must not touch, baseline regressions, and the exported spec running under Playwright Test with the same results).
+107 tests: scoring, schema validation, SSRF guard, the API audit end to end with the network mocked, and the web audit running a real Chromium against a local fixture server (clean page, broken page, error status, private targets, blocked private sub-requests, and redirects to private addresses including chains), the HTTP server (validation, rate limit, concurrency, host and content-type checks), the interface in a real browser, including checks that it passes its own web audit in light and dark mode and does not overflow on a phone, and the site exploration against a fixture site with known defects (what it finds, what it must not touch, baseline regressions, and the exported spec running under Playwright Test with the same results).
 
 ## Roadmap
 

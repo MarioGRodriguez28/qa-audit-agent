@@ -19,7 +19,7 @@ ${v2 ? '' : '<label for="email">Email</label><input id="email" name="email" type
 <button type="submit">Send</button></form>`;
 
 function createSite() {
-  const state = { variant: 'v1', posts: [], hits: [] };
+  const state = { variant: 'v1', posts: [], hits: [], thirdPartyUrl: '' };
   const server = http.createServer((req, res) => {
     const v2 = state.variant === 'v2';
     const url = new URL(req.url, 'http://x');
@@ -37,13 +37,18 @@ function createSite() {
       case '/products':
         return html(page({
           title: 'Products', h1: 'Products', v2,
-          body: '<p id="list"></p><script>fetch("/api/products").then(r=>r.json()).then(d=>{document.getElementById("list").textContent=d.map(p=>p.name).join(", ")})</script>',
+          body: '<p id="list"></p><script>fetch("/api/products").then(r=>r.json()).then(d=>{document.getElementById("list").textContent=d.map(p=>p.name).join(", ")}).then(()=>fetch("/api/text"))</script>',
         }));
       case '/api/products':
         return json(v2 ? [{ id: 1, name: 'Widget', price: '9.99' }] : [{ id: 1, name: 'Widget', price: 9.99 }, { id: 2, name: 'Gadget', price: 19.5 }]);
       case '/contact': return html(page({ title: 'Contact', h1: 'Contact us', body: contactForm(v2), v2 }));
       case '/broken':
         return html(page({ title: 'Broken', h1: '', body: '<img src="/missing.png"><script>console.error("boom")</script>', v2 }));
+      case '/thirdparty':
+        return html(page({ title: 'Third party', h1: 'Third party', nav: false, body: `<script src="${state.thirdPartyUrl}/tp.js"></script>` }));
+      case '/csp':
+        return html(page({ title: 'CSP', h1: 'CSP', nav: false, head: `<meta http-equiv="Content-Security-Policy" content="img-src 'self'">`, body: `<img alt="pixel" src="${state.thirdPartyUrl}/pixel.gif">` }));
+      case '/api/text': return res.writeHead(200, { 'content-type': 'text/plain' }).end('plain text, not json');
       case '/logout': return html('<h1>Signed out</h1>');
       case '/files/report.pdf': return res.writeHead(200, { 'content-type': 'application/pdf' }).end('%PDF');
       default: return html('<h1>Not found</h1>', 404);
@@ -52,4 +57,14 @@ function createSite() {
   return { server, state };
 }
 
-module.exports = { createSite };
+function createThirdParty() {
+  return http.createServer((req, res) => {
+    if (req.url === '/tp.js') {
+      return res.writeHead(200, { 'content-type': 'text/javascript' }).end('console.error("third-party noise"); var i = new Image(); i.src = new URL("/missing.gif", document.currentScript.src).href;');
+    }
+    if (req.url === '/pixel.gif') return res.writeHead(200, { 'content-type': 'image/gif' }).end(Buffer.from('R0lGODlhAQABAAAAACw=', 'base64'));
+    return res.writeHead(404).end();
+  });
+}
+
+module.exports = { createSite, createThirdParty };

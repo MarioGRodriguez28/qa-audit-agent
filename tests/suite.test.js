@@ -3,7 +3,7 @@ const os = require('node:os');
 const path = require('node:path');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
-const { createSite } = require('./site');
+const { createSite, createThirdParty } = require('./site');
 const { explore } = require('../src/explore');
 const { generateTests, createBaseline } = require('../src/generate');
 const { runSuite } = require('../src/runner');
@@ -16,14 +16,21 @@ const ROOT = path.join(__dirname, '..');
 
 let site;
 let base;
+let thirdParty;
 
 beforeAll(async () => {
   site = createSite();
   await new Promise((resolve) => site.server.listen(0, '127.0.0.1', resolve));
+  thirdParty = createThirdParty();
+  await new Promise((resolve) => thirdParty.listen(0, '127.0.0.1', resolve));
+  site.state.thirdPartyUrl = `http://localhost:${thirdParty.address().port}`;
   base = `http://127.0.0.1:${site.server.address().port}/`;
 });
 
-afterAll(() => new Promise((resolve) => site.server.close(resolve)));
+afterAll(async () => {
+  await new Promise((resolve) => thirdParty.close(resolve));
+  await new Promise((resolve) => site.server.close(resolve));
+});
 
 beforeEach(() => {
   site.state.variant = 'v1';
@@ -86,6 +93,7 @@ describe('generated suite', () => {
     expect(count(cases, 'form-validation')).toBe(5);
     expect(count(cases, 'form-accepts-valid')).toBe(1);
     expect(count(cases, 'api-contract')).toBe(1);
+    expect(cases.filter((c) => c.type === 'api-contract').every((c) => c.shape)).toBe(true);
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
   });
 
@@ -143,6 +151,28 @@ describe('generated suite', () => {
     const shot = result.tests.find((t) => t.status === 'failed').screenshot;
 
     expect((await fs.stat(path.join(out, shot))).size).toBeGreaterThan(0);
+  });
+});
+
+describe('third-party noise', () => {
+  const pageLoads = async (pathname) => {
+    const model = { startUrl: base, origin: new URL(base).origin, pages: [], skipped: [], authRequired: false };
+    const result = await runSuite({ model, cases: [{ id: 'page:1', group: 'page', type: 'page-loads', name: 'x', url: new URL(pathname, base).href }], allowLocal: true });
+    return result.tests[0];
+  };
+
+  it('does not fail a page for console errors and failed requests caused by a third-party script', async () => {
+    const test = await pageLoads('/thirdparty');
+
+    expect(test.status).toBe('passed');
+    expect(test.detail).toMatch(/third-party issue/);
+  });
+
+  it('still fails a page whose own Content Security Policy blocks a resource', async () => {
+    const test = await pageLoads('/csp');
+
+    expect(test.status).toBe('failed');
+    expect(test.detail).toMatch(/Content Security Policy/i);
   });
 });
 

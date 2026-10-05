@@ -23,9 +23,12 @@ function body(c, origin) {
     case 'page-loads':
       return `  const errors = [];
   const bad = [];
-  page.on('console', (m) => m.type() === 'error' && !m.text().startsWith('Failed to load resource') && errors.push(m.text()));
+  page.on('console', (m) => {
+    if (m.type() !== 'error' || m.text().startsWith('Failed to load resource')) return;
+    if (own(m.location().url) || /content security policy/i.test(m.text())) errors.push(m.text());
+  });
   page.on('pageerror', (e) => errors.push(e.message));
-  page.on('response', (r) => r.status() >= 400 && r.request().resourceType() !== 'document' && bad.push(r.status() + ' ' + r.url()));
+  page.on('response', (r) => r.status() >= 400 && r.request().resourceType() !== 'document' && own(r.url()) && bad.push(r.status() + ' ' + r.url()));
   const response = await page.goto(${target(c.url, origin)});
   await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
   expect(response.status()).toBeLessThan(400);
@@ -101,6 +104,14 @@ const { AxeBuilder } = require('@axe-core/playwright');
 
 const BASE_URL = (process.env.BASE_URL || ${q(model.origin)}).replace(/\\/$/, '');
 const at = (path) => BASE_URL + path;
+// Problems caused by third-party scripts (analytics, captchas) are not the site's own.
+const own = (url) => {
+  try {
+    return new URL(url).origin === new URL(BASE_URL).origin;
+  } catch {
+    return true;
+  }
+};
 
 ${shapeHelpers()}
 
