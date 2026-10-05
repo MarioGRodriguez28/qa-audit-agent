@@ -4,79 +4,144 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>QA Audit Agent</title>
-  <meta name="description" content="Audit an API from its OpenAPI spec or a web page in a real browser, and get a scored report.">
+  <meta name="description" content="Measure an API from its OpenAPI spec or a web page in a real browser, and get a scored report.">
+  <meta name="color-scheme" content="light dark">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/fonts/jetbrainsmono.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header class="top">
-    <p class="brand">QA Audit Agent</p>
+  <header class="bar">
+    <a class="mark" href="/" aria-label="QA Audit Agent, home">
+      <svg class="glyph" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M12 1v7M12 16v7M1 12h7M16 12h7" stroke="currentColor" stroke-width="1.5" fill="none"/>
+        <circle cx="12" cy="12" r="1.6" class="dot"/>
+      </svg>
+      <span>QA<i>/</i>AUDIT</span>
+    </a>
+    <p class="bar-meta">Local instance<span aria-hidden="true"> / </span><span id="mode-badge">template summary</span></p>
   </header>
 
-  <main>
-    <h1>Audit an API or a web page</h1>
-    <p class="lead">Pick a target, run the checks and get a score from 0 to 100 with a prioritised list of findings.</p>
+  <main class="sheet">
+    <section class="panel" aria-labelledby="panel-title">
+      <p class="eyebrow">Sheet 01 / Setup</p>
+      <h1 id="panel-title">Measure an API<br>or a page.</h1>
+      <p class="lead">Public targets only. Every check is deterministic; a language model, if configured, writes the summary and nothing else.</p>
 
-    <form id="audit-form" novalidate>
-      <fieldset>
-        <legend>What do you want to audit?</legend>
-        <label class="choice"><input type="radio" name="type" value="api" checked> API from an OpenAPI spec</label>
-        <label class="choice"><input type="radio" name="type" value="web"> Web page in a real browser</label>
-      </fieldset>
+      <form id="audit-form" novalidate>
+        <fieldset class="seg">
+          <legend>Target type</legend>
+          <input class="sr" type="radio" id="type-api" name="type" value="api" checked>
+          <label for="type-api"><span class="seg-k">API</span> <span class="seg-d">from an OpenAPI spec</span></label>
+          <input class="sr" type="radio" id="type-web" name="type" value="web">
+          <label for="type-web"><span class="seg-k">Web</span> <span class="seg-d">page in a real browser</span></label>
+        </fieldset>
 
-      <div class="field">
-        <label for="target" id="target-label">OpenAPI spec URL (JSON)</label>
-        <input id="target" name="target" type="url" required autocomplete="off" placeholder="https://petstore3.swagger.io/api/v3/openapi.json" aria-describedby="target-help">
-        <p class="help" id="target-help">Only public http(s) addresses are accepted. Private and local addresses are blocked.</p>
+        <div class="field">
+          <label for="target" id="target-label">OpenAPI spec URL (JSON)</label>
+          <input class="line" id="target" name="target" type="url" required autocomplete="off" spellcheck="false" placeholder="https://petstore3.swagger.io/api/v3/openapi.json" aria-describedby="target-help">
+          <p class="help" id="target-help">http(s) only. Private and local addresses are blocked.</p>
+          <p class="try">
+            <button type="button" class="link" id="example-api">Try the Petstore API</button>
+            <button type="button" class="link" id="example-web">Try example.com</button>
+          </p>
+        </div>
+
+        <div class="field" id="base-field">
+          <label for="base-url">Base URL override (optional)</label>
+          <input class="line" id="base-url" name="baseUrl" type="url" autocomplete="off" spellcheck="false" placeholder="Empty: use the server from the spec">
+        </div>
+
+        <label class="check" id="ai-choice">
+          <input class="sr" type="checkbox" id="ai" checked>
+          <span class="box" aria-hidden="true"></span>
+          <span>Write the summary with the AI model</span>
+        </label>
+        <p class="help" id="ai-help" hidden>No model key is configured on this server, so the summary comes from a template.</p>
+
+        <button type="submit" id="run" class="run"><span>Run audit</span><span class="run-key" aria-hidden="true">Enter</span></button>
+      </form>
+
+      <p id="error" class="error" role="alert" hidden></p>
+      <p id="status" class="status" role="status"></p>
+      <p id="clock" class="clock" aria-hidden="true" hidden></p>
+
+      <dl class="limits">
+        <div><dt>Methods</dt><dd>GET only</dd></div>
+        <div><dt>Links per page</dt><dd>25</dd></div>
+        <div><dt>Rate</dt><dd>10 / min</dd></div>
+        <div><dt>Stored</dt><dd>nothing</dd></div>
+      </dl>
+    </section>
+
+    <section class="report" aria-labelledby="results-title">
+      <div class="marks" aria-hidden="true"></div>
+      <div class="scan" id="scan" aria-hidden="true" hidden></div>
+      <p class="eyebrow">Sheet 02 / Report</p>
+      <h2 id="results-title" tabindex="-1">Report</h2>
+
+      <div id="empty" class="empty">
+        <dl class="block ghost">
+          <div><dt>Target</dt><dd>-</dd></div>
+          <div><dt>Type</dt><dd>-</dd></div>
+          <div><dt>Scanned</dt><dd>-</dd></div>
+          <div><dt>Requests</dt><dd>-</dd></div>
+        </dl>
+        <p class="score ghost-score">--<small>/100</small></p>
+        <div class="ruler ghost-ruler" aria-hidden="true"><div class="ticks"></div></div>
+        <p class="meta">No audit yet. Pick a target on the left and run it; this sheet fills in with a score, the findings in order of severity, and a timing chart of every request.</p>
       </div>
 
-      <div class="field" id="base-field">
-        <label for="base-url">Base URL override (optional)</label>
-        <input id="base-url" name="baseUrl" type="url" autocomplete="off" placeholder="Leave empty to use the server from the spec">
-      </div>
+      <div id="results" hidden>
+        <dl class="block">
+          <div><dt>Target</dt><dd id="r-target"></dd></div>
+          <div><dt>Type</dt><dd id="r-type"></dd></div>
+          <div><dt>Scanned</dt><dd id="r-scanned"></dd></div>
+          <div><dt>Requests</dt><dd id="r-count"></dd></div>
+        </dl>
 
-      <label class="choice" id="ai-choice"><input type="checkbox" id="ai" checked> Write the summary with the AI model</label>
-      <p class="help" id="ai-help" hidden>No model key is configured on this server, so the summary comes from a template.</p>
+        <div class="gauge">
+          <p class="score"><span id="score"></span><small>/100</small></p>
+          <p class="grade">Grade <strong id="grade"></strong></p>
+        </div>
+        <div class="ruler" id="ruler" aria-hidden="true">
+          <div class="ticks"></div>
+          <div class="marker" id="marker"></div>
+          <ol class="labels"><li>0</li><li>10</li><li>20</li><li>30</li><li>40</li><li>50</li><li>60</li><li>70</li><li>80</li><li>90</li><li>100</li></ol>
+          <ol class="zones"><li class="z-f">F</li><li class="z-d">D</li><li class="z-c">C</li><li class="z-b">B</li><li class="z-a">A</li></ol>
+        </div>
 
-      <div class="actions">
-        <button type="submit" id="run" class="primary">Run audit</button>
-        <button type="button" class="secondary" id="example-api">Try the Petstore API</button>
-        <button type="button" class="secondary" id="example-web">Try example.com</button>
-      </div>
-    </form>
+        <h3 class="sec">Summary</h3>
+        <p id="summary" class="note"></p>
+        <p id="summary-source" class="meta"></p>
 
-    <p id="error" class="error" role="alert" hidden></p>
-    <p id="status" class="status" role="status"></p>
+        <h3 class="sec">Findings <span id="findings-count" class="count"></span></h3>
+        <ol id="findings" class="findings"></ol>
 
-    <section id="results" class="results" aria-labelledby="results-title" hidden>
-      <h2 id="results-title" tabindex="-1">Results</h2>
-      <div class="scorecard">
-        <p class="score"><span id="score"></span><span class="out-of">/100</span></p>
-        <p class="grade">Grade <strong id="grade"></strong></p>
-        <meter id="score-meter" min="0" max="100" aria-label="Score"></meter>
-      </div>
-      <p id="target-line" class="meta"></p>
-      <h3>Summary</h3>
-      <p id="summary"></p>
-      <p id="summary-source" class="meta"></p>
-      <h3>Findings</h3>
-      <ul id="findings" class="findings"></ul>
-      <h3 id="requests-title">Requests checked</h3>
-      <div class="table-wrap">
-        <table aria-labelledby="requests-title">
-          <thead><tr><th scope="col">Request</th><th scope="col">Status</th><th scope="col">Time</th><th scope="col">Issues</th></tr></thead>
-          <tbody id="requests"></tbody>
-        </table>
-      </div>
-      <div class="actions">
-        <button type="button" class="secondary" id="download-md">Download report.md</button>
-        <button type="button" class="secondary" id="download-json">Download report.json</button>
+        <h3 class="sec" id="requests-title">Requests checked</h3>
+        <div class="table-wrap">
+          <table aria-labelledby="requests-title">
+            <thead><tr><th scope="col">Request</th><th scope="col">Status</th><th scope="col">Time</th><th scope="col">Issues</th><th scope="col">Timeline</th></tr></thead>
+            <tbody id="requests"></tbody>
+          </table>
+        </div>
+        <ul class="legend" aria-label="Timeline legend">
+          <li><span class="tl s2" aria-hidden="true"></span>2xx solid</li>
+          <li><span class="tl s3" aria-hidden="true"></span>3xx dotted</li>
+          <li><span class="tl s4" aria-hidden="true"></span>4xx hatched</li>
+          <li><span class="tl s5" aria-hidden="true"></span>5xx red hatched</li>
+          <li><span class="tl err" aria-hidden="true"></span>no response dashed</li>
+        </ul>
+
+        <div class="actions">
+          <button type="button" class="ghost-btn" id="download-md">Download report.md</button>
+          <button type="button" class="ghost-btn" id="download-json">Download report.json</button>
+          <button type="button" class="ghost-btn" id="print">Print</button>
+        </div>
       </div>
     </section>
   </main>
-
-  <footer class="foot">
-    <p>Checks are deterministic. The AI model only writes the summary.</p>
-  </footer>
 
   <script src="/app.js"></script>
 </body>

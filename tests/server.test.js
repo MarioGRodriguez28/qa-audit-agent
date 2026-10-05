@@ -51,13 +51,13 @@ describe('static files and headers', () => {
     expect(res.headers.get('x-frame-options')).toBe('DENY');
   });
 
-  it.each(['/app.js', '/style.css'])('serves %s', async (file) => {
+  it.each(['/app.js', '/style.css', '/favicon.svg', '/fonts/jetbrainsmono.woff2'])('serves %s', async (file) => {
     ctx = await start();
 
     expect((await fetch(ctx.base + file)).status).toBe(200);
   });
 
-  it.each(['/../package.json', '/%2e%2e/package.json', '/src/server.js', '/index.html'])(
+  it.each(['/../package.json', '/%2e%2e/package.json', '/src/server.js', '/index.html', '/fonts/', '/fonts/other.woff2'])(
     'does not serve %s',
     async (path) => {
       ctx = await start();

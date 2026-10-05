@@ -9,7 +9,9 @@
     api: ['OpenAPI spec URL (JSON)', 'https://petstore3.swagger.io/api/v3/openapi.json'],
     web: ['Page URL', 'https://example.com'],
   };
+  const SEVERITY_ORDER = { high: 0, medium: 1, low: 2, info: 3 };
   let lastReport = null;
+  let clockTimer = null;
 
   // Audited data is untrusted, so everything is written with textContent, never as HTML.
   function el(tag, { className, text } = {}, children = []) {
@@ -21,6 +23,7 @@
   }
 
   const currentType = () => form.elements.type.value;
+  const pad = (n) => String(n).padStart(2, '0');
 
   function syncType() {
     const type = currentType();
@@ -29,10 +32,29 @@
     $('base-field').hidden = type !== 'api';
   }
 
+  function startClock() {
+    const started = Date.now();
+    const tick = () => {
+      const seconds = Math.floor((Date.now() - started) / 1000);
+      $('clock').textContent = `Elapsed ${pad(Math.floor(seconds / 60))}:${pad(seconds % 60)}`;
+    };
+    tick();
+    $('clock').hidden = false;
+    clockTimer = setInterval(tick, 1000);
+  }
+
+  function stopClock() {
+    clearInterval(clockTimer);
+    $('clock').hidden = true;
+  }
+
   function setBusy(busy, message = '') {
     $('run').disabled = busy;
+    $('scan').hidden = !busy;
     form.setAttribute('aria-busy', String(busy));
     $('status').textContent = message;
+    if (busy) startClock();
+    else stopClock();
   }
 
   function showError(message) {
@@ -40,22 +62,43 @@
     $('error').hidden = !message;
   }
 
+  const statusClass = (status) => {
+    if (status === null) return 'err';
+    if (status >= 500) return 's5';
+    if (status >= 400) return 's4';
+    if (status >= 300) return 's3';
+    return 's2';
+  };
+
+  const zoneFor = (score) => (score >= 90 ? 'a' : score >= 75 ? 'b' : score >= 60 ? 'c' : score >= 40 ? 'd' : 'f');
+
+  function renderRuler(score) {
+    document.querySelectorAll('#ruler .labels li').forEach((li, i) => li.style.setProperty('--x', String(i * 10)));
+    document.querySelectorAll('#ruler .zones li').forEach((li) => li.classList.toggle('on', li.className.includes(`z-${zoneFor(score)}`)));
+    const marker = $('marker');
+    marker.style.setProperty('--p', '0');
+    requestAnimationFrame(() => requestAnimationFrame(() => marker.style.setProperty('--p', String(score))));
+  }
+
   function render({ result, summary, markdown }) {
     lastReport = { result, summary, markdown };
+    $('r-target').textContent = result.target;
+    $('r-type').textContent = result.kind === 'frontend' ? 'Web page' : 'API';
+    $('r-scanned').textContent = `${new Date(result.scannedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
+    $('r-count').textContent = String(result.endpoints.length);
     $('score').textContent = String(result.score);
     $('grade').textContent = result.grade;
-    $('score-meter').value = result.score;
-    $('target-line').textContent = `${result.specTitle} - ${result.target} - ${result.scannedAt}`;
     $('summary').textContent = summary.text;
     $('summary-source').textContent =
       summary.source === 'llm' ? 'Summary written by the AI model.' : 'Summary generated from a template.';
+    renderRuler(result.score);
 
     const findings = $('findings');
     findings.replaceChildren();
+    $('findings-count').textContent = String(result.findings.length).padStart(2, '0');
     if (!result.findings.length) findings.append(el('li', { className: 'empty', text: 'No issues found.' }));
-    const order = { high: 0, medium: 1, low: 2, info: 3 };
     [...result.findings]
-      .sort((a, b) => order[a.severity] - order[b.severity])
+      .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity])
       .forEach((f) => {
         const body = el('div', {}, [
           el('span', { className: 'finding-title', text: f.title }),
@@ -66,17 +109,23 @@
 
     const rows = $('requests');
     rows.replaceChildren();
+    const slowest = Math.max(1, ...result.endpoints.map((e) => e.durationMs));
     result.endpoints.forEach((e) => {
+      const bar = el('span', { className: `tl ${statusClass(e.status)}` });
+      bar.setAttribute('aria-hidden', 'true');
+      bar.style.setProperty('--w', String(Math.max(1, Math.round((e.durationMs / slowest) * 100))));
       rows.append(
         el('tr', {}, [
           el('td', { text: e.endpoint }),
           el('td', { text: e.status === null ? 'error' : String(e.status) }),
           el('td', { text: `${e.durationMs} ms` }),
           el('td', { text: String(e.issues) }),
+          el('td', {}, [bar]),
         ]),
       );
     });
 
+    $('empty').hidden = true;
     $('results').hidden = false;
     $('results-title').focus();
   }
@@ -101,7 +150,8 @@
       return;
     }
     $('results').hidden = true;
-    setBusy(true, type === 'web' ? 'Running audit in a real browser, this can take up to a minute...' : 'Running audit...');
+    $('empty').hidden = false;
+    setBusy(true, type === 'web' ? 'Running audit in a real browser. This can take up to a minute.' : 'Running audit.');
     try {
       const response = await fetch('/api/audit', {
         method: 'POST',
@@ -139,10 +189,12 @@
   $('download-json').addEventListener('click', () =>
     lastReport && download('report.json', JSON.stringify({ ...lastReport.result, summary: lastReport.summary.text }, null, 2), 'application/json'),
   );
+  $('print').addEventListener('click', () => window.print());
 
   fetch('/api/config')
     .then((res) => res.json())
     .then((config) => {
+      $('mode-badge').textContent = config.ai ? 'AI summary on' : 'template summary';
       if (!config.ai) {
         $('ai').checked = false;
         $('ai').disabled = true;

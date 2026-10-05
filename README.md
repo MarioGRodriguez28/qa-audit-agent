@@ -29,6 +29,8 @@ npm run ui          # http://localhost:4317, or PORT=8080 npm run ui
 
 Pick API or web page, run the audit, read the score and findings, and download `report.md` or `report.json`. It listens on 127.0.0.1 only and runs the same checks as the CLI.
 
+The interface is a measurement sheet rather than a dashboard: a graduated ruler for the score, a timing chart of every request with a different fill per status class (so it does not rely on color alone), light and dark themes, and a print stylesheet for handing the report to a client. It is about 62 KB in total with no third-party requests. The font is JetBrains Mono (SIL Open Font License).
+
 To enable the AI summary, copy `.env.example` to `.env` and set `GEMINI_API_KEY`. The file is git-ignored.
 
 ## API audit
@@ -92,7 +94,7 @@ Known limit: addresses are checked before each request, not pinned during it, so
 npm test
 ```
 
-78 tests: scoring, schema validation, SSRF guard, the API audit end to end with the network mocked, and the web audit running a real Chromium against a local fixture server (clean page, broken page, error status, private targets, blocked private sub-requests, and redirects to private addresses including chains), the HTTP server (validation, rate limit, concurrency, host and content-type checks), and the interface in a real browser, including a check that it passes its own web audit.
+85 tests: scoring, schema validation, SSRF guard, the API audit end to end with the network mocked, and the web audit running a real Chromium against a local fixture server (clean page, broken page, error status, private targets, blocked private sub-requests, and redirects to private addresses including chains), the HTTP server (validation, rate limit, concurrency, host and content-type checks), and the interface in a real browser, including checks that it passes its own web audit in light and dark mode and does not overflow on a phone.
 
 ## Roadmap
 

@@ -12,6 +12,8 @@ const STATIC = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8'],
+  '/favicon.svg': ['favicon.svg', 'image/svg+xml', 'public, max-age=86400'],
+  '/fonts/jetbrainsmono.woff2': ['fonts/jetbrainsmono.woff2', 'font/woff2', 'public, max-age=31536000, immutable'],
 };
 const SECURITY_HEADERS = {
   'content-security-policy':
@@ -169,8 +171,9 @@ function createApp({
 
     if (STATIC[pathname]) {
       if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed');
-      const [file, type] = STATIC[pathname];
-      return send(res, 200, await fs.readFile(path.join(PUBLIC_DIR, file)), { 'content-type': type });
+      const [file, type, cache] = STATIC[pathname];
+      const headers = { 'content-type': type, ...(cache && { 'cache-control': cache }) };
+      return send(res, 200, await fs.readFile(path.join(PUBLIC_DIR, file)), headers);
     }
     if (pathname === '/api/config') {
       if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed');

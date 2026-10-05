@@ -69,6 +69,9 @@ describe('audit interface', () => {
     expect(await page.locator('#requests tr').count()).toBe(2);
     expect(await page.locator('#requests tr').nth(1).innerText()).toContain('error');
     expect(calls.at(-1)).toMatchObject({ type: 'api', target: 'https://api.example.com/openapi.json' });
+    await page.waitForFunction(() => document.getElementById('marker').style.getPropertyValue('--p') === '78');
+    expect(await page.locator('#ruler .zones li.on').innerText()).toBe('B');
+    expect(await page.locator('#requests .tl').evaluateAll((bars) => bars.map((b) => b.className))).toEqual(['tl s5', 'tl err']);
     await page.context().close();
   });
 
@@ -86,7 +89,8 @@ describe('audit interface', () => {
 
   it('switches to web mode, hides the base URL field and uses the example', async () => {
     const page = await openPage();
-    await page.getByLabel('Web page in a real browser').check();
+    await page.locator('label[for="type-web"]').click();
+    expect(await page.getByLabel('Web page in a real browser').isChecked()).toBe(true);
 
     expect(await page.locator('#base-field').isHidden()).toBe(true);
     await page.getByRole('button', { name: 'Try example.com' }).click();
@@ -138,8 +142,35 @@ describe('audit interface', () => {
     await page.context().close();
   });
 
-  it('passes its own web audit with no medium or high findings', async () => {
-    const result = await auditFrontend({ url: base, allowLocal: true });
+  it('does not overflow horizontally on a phone, with results on screen', async () => {
+    const context = await browser.newContext({ viewport: { width: 375, height: 800 } });
+    const page = await context.newPage();
+    await page.goto(base);
+    await page.getByLabel('OpenAPI spec URL (JSON)').fill('https://api.example.com/openapi.json');
+    await page.getByRole('button', { name: 'Run audit' }).click();
+    await page.locator('#results').waitFor({ state: 'visible' });
+
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    expect(await page.locator('.finding-title').first().evaluate((e) => e.getBoundingClientRect().width)).toBeGreaterThan(150);
+    await context.close();
+  });
+
+  it('has no unexpected requests or console errors while loading and running', async () => {
+    const page = await openPage();
+    const problems = [];
+    page.on('console', (m) => m.type() === 'error' && problems.push(m.text()));
+    page.on('response', (r) => r.status() >= 400 && problems.push(`${r.status()} ${r.url()}`));
+    await page.reload();
+    await page.getByLabel('OpenAPI spec URL (JSON)').fill('https://api.example.com/openapi.json');
+    await page.getByRole('button', { name: 'Run audit' }).click();
+    await page.locator('#results').waitFor({ state: 'visible' });
+
+    expect(problems).toEqual([]);
+    await page.context().close();
+  });
+
+  it.each(['light', 'dark'])('passes its own web audit in %s mode with no medium or high findings', async (colorScheme) => {
+    const result = await auditFrontend({ url: base, allowLocal: true, contextOptions: { colorScheme } });
 
     expect(result.findings.filter((f) => ['high', 'medium'].includes(f.severity))).toEqual([]);
   });
