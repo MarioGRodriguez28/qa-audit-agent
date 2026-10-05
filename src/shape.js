@@ -14,6 +14,7 @@ function shapeOf(value, depth = 0) {
   return { type: typeof value };
 }
 
+// embed-start: copied verbatim into exported specs
 function actualType(value) {
   if (value === null) return 'null';
   if (Array.isArray(value)) return 'array';
@@ -37,6 +38,8 @@ function conforms(shape, value, path = '$') {
   }
   return [];
 }
+
+// embed-end
 
 function describeShape(shape, depth = 0) {
   if (!shape) return 'empty';

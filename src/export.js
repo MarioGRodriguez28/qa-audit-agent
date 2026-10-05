@@ -1,14 +1,14 @@
-const { conforms } = require('./shape');
+const fs = require('node:fs');
 const { pathOf } = require('./generate');
 
-// conforms() needs actualType(), which is private to shape.js, so both are embedded as source text.
-const SHAPE_HELPERS = `function actualType(value) {
-  if (value === null) return 'null';
-  if (Array.isArray(value)) return 'array';
-  if (Number.isInteger(value)) return 'integer';
-  return typeof value;
+// The exported spec embeds the checker verbatim. It is read from the file on disk, not from
+// Function.toString(), because test coverage instrumentation rewrites functions in memory.
+function shapeHelpers() {
+  const source = fs.readFileSync(require.resolve('./shape'), 'utf8');
+  const start = source.indexOf('// embed-start');
+  const end = source.indexOf('// embed-end');
+  return source.slice(source.indexOf('\n', start) + 1, end).trim();
 }
-${conforms.toString()}`;
 
 const q = (value) => JSON.stringify(value);
 
@@ -102,7 +102,7 @@ const { AxeBuilder } = require('@axe-core/playwright');
 const BASE_URL = (process.env.BASE_URL || ${q(model.origin)}).replace(/\\/$/, '');
 const at = (path) => BASE_URL + path;
 
-${SHAPE_HELPERS}
+${shapeHelpers()}
 
 ${describes.join('\n\n')}
 `;

@@ -6,6 +6,7 @@ const { createGuard } = require('./frontend');
 const { conforms } = require('./shape');
 const { pathOf } = require('./generate');
 const { grade } = require('./checks');
+const browser = require('./browser');
 
 const UNVERIFIABLE_STATUS = [401, 403, 429, 999];
 const passed = (detail = '') => ({ status: 'passed', detail });
@@ -67,11 +68,7 @@ const RUNNERS = {
   'page-structure': (ctx, c) =>
     withPage(ctx, c, async (page) => {
       await open(ctx, page, c.url);
-      const facts = await page.evaluate(() => ({
-        h1: document.querySelectorAll('h1').length,
-        lang: document.documentElement.lang,
-        viewport: Boolean(document.querySelector('meta[name="viewport"]')),
-      }));
+      const facts = await page.evaluate(browser.structureFacts);
       const problems = [];
       if (facts.h1 !== 1) problems.push(`${facts.h1} h1 headings (expected 1)`);
       if (!facts.lang) problems.push('missing lang attribute');
@@ -119,10 +116,10 @@ const RUNNERS = {
     withPage(ctx, c, async (page) => {
       await open(ctx, page, c.url);
       const form = page.locator('form').nth(c.formIndex);
-      const blocked = await form.evaluate((f) => !f.checkValidity());
+      const blocked = await form.evaluate(browser.formIsInvalid);
       const notEnforced = [];
       for (const field of c.fields) {
-        const missing = await form.locator(field.selector).first().evaluate((el) => el.validity.valueMissing);
+        const missing = await form.locator(field.selector).first().evaluate(browser.valueMissing);
         if (!missing) notEnforced.push(field.label);
       }
       if (!blocked) return failed('the empty form is considered valid');
@@ -134,11 +131,11 @@ const RUNNERS = {
       await open(ctx, page, c.url);
       const field = page.locator('form').nth(c.formIndex).locator(c.selector).first();
       await field.fill(c.bad);
-      if (!(await field.evaluate((el, flag) => el.validity[flag], c.flag))) {
+      if (!(await field.evaluate(browser.fieldFlag, c.flag))) {
         return failed(`"${c.bad}" was accepted (${c.flag} is false)`);
       }
       await field.fill(c.good);
-      if (!(await field.evaluate((el) => el.validity.valid))) return failed(`the valid value "${c.good}" was rejected`);
+      if (!(await field.evaluate(browser.fieldIsValid))) return failed(`the valid value "${c.good}" was rejected`);
       return passed();
     }),
 
@@ -152,9 +149,7 @@ const RUNNERS = {
         else if (tag === 'select') await field.selectOption(value);
         else await field.fill(value);
       }
-      const invalid = await form.evaluate((f) =>
-        [...f.elements].filter((el) => el.willValidate && !el.validity.valid).map((el) => el.name || el.id),
-      );
+      const invalid = await form.evaluate(browser.invalidFieldNames);
       return invalid.length ? failed(`still invalid: ${invalid.join(', ')}`) : passed();
     }),
 
