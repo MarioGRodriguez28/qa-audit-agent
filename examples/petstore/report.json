@@ -1,0 +1,123 @@
+{
+  "target": "https://petstore3.swagger.io/api/v3",
+  "specTitle": "Swagger Petstore - OpenAPI 3.0",
+  "scannedAt": "2026-10-05T17:56:59.543Z",
+  "endpoints": [
+    {
+      "endpoint": "GET /pet/findByStatus",
+      "status": 500,
+      "durationMs": 114,
+      "issues": 1
+    },
+    {
+      "endpoint": "GET /pet/findByTags",
+      "status": 500,
+      "durationMs": 117,
+      "issues": 1
+    },
+    {
+      "endpoint": "GET /pet/{petId}",
+      "status": 200,
+      "durationMs": 116,
+      "issues": 0
+    },
+    {
+      "endpoint": "GET /store/inventory",
+      "status": 500,
+      "durationMs": 115,
+      "issues": 1
+    },
+    {
+      "endpoint": "GET /store/order/{orderId}",
+      "status": 500,
+      "durationMs": 117,
+      "issues": 1
+    },
+    {
+      "endpoint": "GET /user/login",
+      "status": 200,
+      "durationMs": 116,
+      "issues": 1
+    },
+    {
+      "endpoint": "GET /user/logout",
+      "status": 200,
+      "durationMs": 118,
+      "issues": 0
+    },
+    {
+      "endpoint": "GET /user/{username}",
+      "status": 500,
+      "durationMs": 116,
+      "issues": 1
+    }
+  ],
+  "findings": [
+    {
+      "id": "HDR_NOSNIFF",
+      "severity": "low",
+      "title": "Missing X-Content-Type-Options",
+      "endpoint": "API",
+      "detail": "Add \"nosniff\" to stop MIME sniffing"
+    },
+    {
+      "id": "HDR_HSTS",
+      "severity": "low",
+      "title": "Missing Strict-Transport-Security",
+      "endpoint": "API",
+      "detail": "HTTPS responses should send HSTS"
+    },
+    {
+      "id": "CORS_WILDCARD",
+      "severity": "low",
+      "title": "CORS allows any origin",
+      "endpoint": "API",
+      "detail": "Access-Control-Allow-Origin is \"*\""
+    },
+    {
+      "id": "STATUS_5XX",
+      "severity": "high",
+      "title": "Server error",
+      "endpoint": "GET /pet/findByStatus",
+      "detail": "Returned 500"
+    },
+    {
+      "id": "STATUS_5XX",
+      "severity": "high",
+      "title": "Server error",
+      "endpoint": "GET /pet/findByTags",
+      "detail": "Returned 500"
+    },
+    {
+      "id": "STATUS_5XX",
+      "severity": "high",
+      "title": "Server error",
+      "endpoint": "GET /store/inventory",
+      "detail": "Returned 500"
+    },
+    {
+      "id": "STATUS_5XX",
+      "severity": "high",
+      "title": "Server error",
+      "endpoint": "GET /store/order/{orderId}",
+      "detail": "Returned 500"
+    },
+    {
+      "id": "INVALID_JSON",
+      "severity": "high",
+      "title": "Response is not valid JSON",
+      "endpoint": "GET /user/login",
+      "detail": "The body could not be parsed"
+    },
+    {
+      "id": "STATUS_5XX",
+      "severity": "high",
+      "title": "Server error",
+      "endpoint": "GET /user/{username}",
+      "detail": "Returned 500"
+    }
+  ],
+  "score": 4,
+  "grade": "F",
+  "summary": "Swagger Petstore - OpenAPI 3.0 scored 4/100 (grade F) across 8 endpoints, with 6 high and 0 medium issues."
+}

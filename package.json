@@ -1,0 +1,27 @@
+{
+  "name": "qa-audit-agent",
+  "version": "0.1.0",
+  "description": "API auditor for QA: reads an OpenAPI spec, probes the GET endpoints, scores the result and writes a report",
+  "main": "src/audit.js",
+  "bin": {
+    "qa-audit": "src/cli.js"
+  },
+  "scripts": {
+    "audit": "node --env-file-if-exists=.env src/cli.js",
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "engines": {
+    "node": ">=22.9"
+  },
+  "keywords": ["qa", "api-testing", "openapi", "audit", "llm"],
+  "author": "Mario Rodríguez",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MarioGRodriguez28/qa-audit-agent.git"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
