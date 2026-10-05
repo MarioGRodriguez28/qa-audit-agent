@@ -6,6 +6,7 @@ const { finding, score, grade } = require('./checks');
 const AXE_SEVERITY = { critical: 'high', serious: 'medium', moderate: 'low', minor: 'low' };
 const LINK_BATCH = 5;
 
+/* istanbul ignore next: serialised and executed inside the browser */
 function pageFacts() {
   const abs = (el) => el.src || el.href;
   return {
