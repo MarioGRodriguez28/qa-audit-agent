@@ -1,9 +1,9 @@
-const ORDER = { high: 0, medium: 1, low: 2 };
+const ORDER = { high: 0, medium: 1, low: 2, info: 3 };
 
 function toMarkdown(result, summary) {
   const findings = [...result.findings].sort((a, b) => ORDER[a.severity] - ORDER[b.severity]);
   const out = [
-    `# API audit: ${result.specTitle}`,
+    `# ${result.kind === 'frontend' ? 'Frontend' : 'API'} audit: ${result.specTitle}`,
     '',
     `Target: ${result.target}  `,
     `Scanned: ${result.scannedAt}  `,
@@ -20,7 +20,7 @@ function toMarkdown(result, summary) {
   for (const f of findings) {
     out.push(`- **${f.severity.toUpperCase()}** \`${f.endpoint}\`: ${f.title}. ${f.detail}`);
   }
-  out.push('', '## Endpoints checked', '', '| Endpoint | Status | Time | Issues |', '|---|---|---|---|');
+  out.push('', result.kind === 'frontend' ? '## Page and links checked' : '## Endpoints checked', '', '| Request | Status | Time | Issues |', '|---|---|---|---|');
   for (const e of result.endpoints) {
     out.push(`| \`${e.endpoint}\` | ${e.status ?? 'error'} | ${e.durationMs} ms | ${e.issues} |`);
   }

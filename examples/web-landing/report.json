@@ -1,0 +1,95 @@
+{
+  "kind": "frontend",
+  "target": "https://mariogrodriguez.com",
+  "specTitle": "Mario Rodríguez — QA Automation",
+  "scannedAt": "2026-10-05T18:01:33.824Z",
+  "endpoints": [
+    {
+      "endpoint": "GET https://mariogrodriguez.com",
+      "status": 200,
+      "durationMs": 887,
+      "issues": 4
+    },
+    {
+      "endpoint": "GET https://linkedin.com/in/mariogrm",
+      "status": 200,
+      "durationMs": 215,
+      "issues": 0
+    },
+    {
+      "endpoint": "GET https://mariogrodriguez.com/privacidad.html",
+      "status": 200,
+      "durationMs": 484,
+      "issues": 0
+    },
+    {
+      "endpoint": "GET https://mariogrodriguez.com/cookies.html",
+      "status": 200,
+      "durationMs": 491,
+      "issues": 0
+    },
+    {
+      "endpoint": "GET https://github.com/MarioGRodriguez28",
+      "status": 200,
+      "durationMs": 610,
+      "issues": 0
+    },
+    {
+      "endpoint": "GET https://calendly.com/mariog-rodriguezm",
+      "status": 200,
+      "durationMs": 1074,
+      "issues": 0
+    },
+    {
+      "endpoint": "GET https://mariogrodriguez.com/privacidad",
+      "status": 200,
+      "durationMs": 188,
+      "issues": 0
+    },
+    {
+      "endpoint": "GET https://mariogrodriguez.com/legal",
+      "status": 200,
+      "durationMs": 264,
+      "issues": 0
+    },
+    {
+      "endpoint": "GET https://mariogrodriguez.com/cookies",
+      "status": 200,
+      "durationMs": 355,
+      "issues": 0
+    }
+  ],
+  "findings": [
+    {
+      "id": "A11Y_color-contrast",
+      "severity": "medium",
+      "title": "Accessibility: Elements must meet minimum color contrast ratio thresholds",
+      "endpoint": "Page",
+      "detail": "8 element(s)"
+    },
+    {
+      "id": "A11Y_heading-order",
+      "severity": "low",
+      "title": "Accessibility: Heading levels should only increase by one",
+      "endpoint": "Page",
+      "detail": "1 element(s)"
+    },
+    {
+      "id": "A11Y_landmark-one-main",
+      "severity": "low",
+      "title": "Accessibility: Document should have one main landmark",
+      "endpoint": "Page",
+      "detail": "1 element(s)"
+    },
+    {
+      "id": "A11Y_region",
+      "severity": "low",
+      "title": "Accessibility: All page content should be contained by landmarks",
+      "endpoint": "Page",
+      "detail": "16 element(s)"
+    }
+  ],
+  "score": 87,
+  "grade": "B",
+  "summary": "Mario Rodríguez — QA Automation scored 87/100 (grade B) across 9 checked requests, with 0 high and 1 medium issues."
+}

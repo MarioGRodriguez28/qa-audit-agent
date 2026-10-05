@@ -57,6 +57,7 @@ async function auditApi({
 
   const value = score(findings);
   return {
+    kind: 'api',
     target: base,
     specTitle: spec.info?.title || 'Untitled API',
     scannedAt: new Date().toISOString(),

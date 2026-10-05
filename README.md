@@ -2,22 +2,28 @@
 
 [![CI](https://github.com/MarioGRodriguez28/qa-audit-agent/actions/workflows/test.yml/badge.svg)](https://github.com/MarioGRodriguez28/qa-audit-agent/actions/workflows/test.yml)
 
-Command line tool that audits an API from its OpenAPI spec. It probes every GET endpoint, checks the responses against the spec, scores the result from 0 to 100 and writes a report that a non-technical client can read.
+Command line tool that audits an API and a web page, scores each from 0 to 100 and writes a report that a non-technical client can read.
 
-The checks are deterministic and run with no API key. An optional language model (Gemini) only writes the plain-language summary at the top of the report. If the key is missing or the call fails, the report falls back to a template, so the audit never depends on the model.
+- `api` reads an OpenAPI spec, probes every GET endpoint and checks the responses against the spec.
+- `web` opens a page in a real browser (Playwright) and checks console errors, failed resources, broken links, accessibility (axe-core) and basic SEO.
+
+The checks are deterministic and run with no API key. An optional language model (Gemini) only writes the plain-language summary at the top of the report. If the key is missing or the call fails, the report falls back to a template, so an audit never depends on the model.
 
 ## Quick start
 
 ```bash
 npm install
-npm run audit -- https://petstore3.swagger.io/api/v3/openapi.json --out reports/petstore
+npx playwright install chromium     # only needed for the web audit
+
+npm run audit -- api https://petstore3.swagger.io/api/v3/openapi.json --out reports/petstore
+npm run audit -- web https://example.com --out reports/example
 ```
 
-A real run is saved in [examples/petstore](examples/petstore/report.md).
+Real runs are saved in [examples/petstore](examples/petstore/report.md) and [examples/web-landing](examples/web-landing/report.md).
 
 To enable the AI summary, copy `.env.example` to `.env` and set `GEMINI_API_KEY`. The file is git-ignored.
 
-## What it checks
+## API audit
 
 | Check | Severity |
 |---|---|
@@ -30,16 +36,32 @@ To enable the AI summary, copy `.env.example` to `.env` and set `GEMINI_API_KEY`
 | Slow response (default over 1000 ms) | medium |
 | Missing `X-Content-Type-Options`, HSTS, or CORS open to any origin | low |
 
+## Web audit
+
+| Check | Severity |
+|---|---|
+| Page returns an error status | high |
+| Accessibility violations (axe-core): critical / serious / moderate and minor | high / medium / low |
+| JavaScript errors in the console | medium |
+| Resources that fail to load (4xx, 5xx, network) | medium |
+| Broken links (up to 25 per page) | medium |
+| HTTP resources on an HTTPS page | medium |
+| Slow page load (default over 3000 ms) | medium |
+| Missing meta description, missing or repeated h1 | low |
+| Requests to private addresses that the guard blocked | info |
+
 Score starts at 100 and loses 15 per high, 7 per medium and 2 per low finding. Grades go from A (90+) to F.
 
 ## Options
 
 ```
-qa-audit <openapi.json | url> [options]
+qa-audit api <openapi.json | url> [options]
+qa-audit web <url> [options]
 
-  --base-url <url>   Override the server URL from the spec
+  --base-url <url>   (api) Override the server URL from the spec
   --out <dir>        Write report.md and report.json
-  --slow-ms <n>      Slow response threshold
+  --slow-ms <n>      Slow response / page load threshold
+  --max-links <n>    (web) Maximum number of links to check
   --no-ai            Skip the AI summary
   --allow-local      Allow localhost / private addresses (development only)
 ```
@@ -48,12 +70,12 @@ The exit code is 2 when there is at least one high severity finding, so it can g
 
 ## Safety
 
-- Only GET requests are sent, so a third-party API is never modified.
-- Targets that are localhost or resolve to private addresses are refused, which blocks using the tool to reach internal services. Redirects are not followed.
+- The API audit only sends GET requests, so a third-party API is never modified.
+- Targets that are localhost or resolve to private addresses are refused. In the web audit the same guard runs on every request the page makes, and redirects are followed by the tool itself with each hop validated before the browser sees it, so a public page cannot reach internal services directly or through a redirect chain. Links and API endpoints are checked without following redirects.
 - Audit data is sent to the model as untrusted input, and only finding metadata is sent, never response bodies.
 - The API key goes in a request header, not in the URL.
 
-Known limit: the address is checked before the request, not pinned during it, so a hostile DNS server could still change its answer in between. A public deployment should add network egress rules.
+Known limit: addresses are checked before each request, not pinned during it, so a hostile DNS server could still change its answer in between. A public deployment should add network egress rules.
 
 ## Tests
 
@@ -61,12 +83,12 @@ Known limit: the address is checked before the request, not pinned during it, so
 npm test
 ```
 
-34 tests with the network mocked: scoring, schema validation, SSRF guard, the audit flow end to end, model fallback and report output.
+42 tests: scoring, schema validation, SSRF guard, the API audit end to end with the network mocked, and the web audit running a real Chromium against a local fixture server (clean page, broken page, error status, private targets, blocked private sub-requests, and redirects to private addresses including chains).
 
 ## Roadmap
 
-- Frontend audit with Playwright (console errors, broken links, forms, accessibility)
 - Web interface with a serverless endpoint and rate limiting
+- Multi-page crawl for the web audit
 - Non-GET checks against a sandbox the user owns
 
 ## License
