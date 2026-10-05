@@ -191,7 +191,11 @@
       setBusy(false, 'Audit finished.');
     } catch (error) {
       setBusy(false);
-      showError(error.message);
+      showError(
+        error instanceof TypeError
+          ? 'Could not reach the QA Audit server. It may have stopped: start it again with "npm run ui" and reload this page.'
+          : error.message,
+      );
     }
   }
 

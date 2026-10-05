@@ -156,6 +156,17 @@ describe('audit interface', () => {
     await page.context().close();
   });
 
+  it('explains that the server may have stopped when the connection fails', async () => {
+    const page = await openPage();
+    await page.route('**/api/audit', (route) => route.abort('connectionrefused'));
+    await page.getByLabel('OpenAPI spec URL (JSON)').fill('https://api.example.com/openapi.json');
+    await page.getByRole('button', { name: 'Run audit' }).click();
+
+    await expect(page.getByRole('alert').innerText()).resolves.toContain('npm run ui');
+    expect(await page.getByRole('button', { name: 'Run audit' }).isEnabled()).toBe(true);
+    await page.context().close();
+  });
+
   it('asks for a URL instead of sending an empty request', async () => {
     const page = await openPage();
     const before = calls.length;
