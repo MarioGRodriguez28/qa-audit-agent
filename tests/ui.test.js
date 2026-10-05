@@ -112,6 +112,16 @@ describe('audit interface', () => {
     await page.context().close();
   });
 
+  it('explains when the server answers with something that is not JSON', async () => {
+    const page = await openPage();
+    await page.route('**/api/audit', (route) => route.fulfill({ status: 502, contentType: 'text/html', body: '<!doctype html><title>Bad gateway</title>' }));
+    await page.getByLabel('OpenAPI spec URL (JSON)').fill('https://api.example.com/openapi.json');
+    await page.getByRole('button', { name: 'Run audit' }).click();
+
+    await expect(page.getByRole('alert').innerText()).resolves.toContain('did not answer with JSON (status 502)');
+    await page.context().close();
+  });
+
   it('asks for a URL instead of sending an empty request', async () => {
     const page = await openPage();
     const before = calls.length;

@@ -163,7 +163,13 @@
           ai: $('ai').checked,
         }),
       });
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(`The server did not answer with JSON (status ${response.status}). Check that this page is served by the QA Audit server.`);
+      }
       if (!response.ok) throw new Error(data.error || `Request failed (${response.status})`);
       render(data);
       setBusy(false, 'Audit finished.');

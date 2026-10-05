@@ -94,7 +94,7 @@ Known limit: addresses are checked before each request, not pinned during it, so
 npm test
 ```
 
-85 tests: scoring, schema validation, SSRF guard, the API audit end to end with the network mocked, and the web audit running a real Chromium against a local fixture server (clean page, broken page, error status, private targets, blocked private sub-requests, and redirects to private addresses including chains), the HTTP server (validation, rate limit, concurrency, host and content-type checks), and the interface in a real browser, including checks that it passes its own web audit in light and dark mode and does not overflow on a phone.
+89 tests: scoring, schema validation, SSRF guard, the API audit end to end with the network mocked, and the web audit running a real Chromium against a local fixture server (clean page, broken page, error status, private targets, blocked private sub-requests, and redirects to private addresses including chains), the HTTP server (validation, rate limit, concurrency, host and content-type checks), and the interface in a real browser, including checks that it passes its own web audit in light and dark mode and does not overflow on a phone.
 
 ## Roadmap
 

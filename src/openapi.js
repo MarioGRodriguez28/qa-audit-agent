@@ -1,12 +1,42 @@
 const fs = require('node:fs/promises');
+const path = require('node:path');
+
+function describeSource(source) {
+  if (!/^https?:\/\//i.test(source)) return path.basename(source);
+  const url = new URL(source);
+  return `${url.host}${url.pathname}`;
+}
+
+function parseSpec(text, source) {
+  let spec;
+  try {
+    spec = JSON.parse(text);
+  } catch {
+    const head = text.trimStart().slice(0, 300).toLowerCase();
+    if (head.startsWith('<')) {
+      throw new Error(
+        `${describeSource(source)} returned an HTML page, not an OpenAPI JSON file. ` +
+          'Open the API docs and look for the link to the JSON spec (often /openapi.json, /v3/api-docs or /swagger.json), then use that URL.',
+      );
+    }
+    if (/^(openapi|swagger)\s*:/m.test(head)) {
+      throw new Error('The spec is YAML, which is not supported yet. Use the JSON version of the spec.');
+    }
+    throw new Error(`${describeSource(source)} is not valid JSON.`);
+  }
+  if (!spec || typeof spec !== 'object' || !spec.paths || typeof spec.paths !== 'object') {
+    throw new Error('The JSON does not look like an OpenAPI spec: no "paths" found.');
+  }
+  return spec;
+}
 
 async function loadSpec(source, fetchImpl = fetch) {
   if (/^https?:\/\//i.test(source)) {
     const res = await fetchImpl(source, { headers: { accept: 'application/json' } });
     if (!res.ok) throw new Error(`Could not download the spec (${res.status})`);
-    return res.json();
+    return parseSpec(await res.text(), source);
   }
-  return JSON.parse(await fs.readFile(source, 'utf8'));
+  return parseSpec(await fs.readFile(source, 'utf8'), source);
 }
 
 function resolveRef(spec, ref) {

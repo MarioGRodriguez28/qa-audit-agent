@@ -91,6 +91,28 @@ describe('spec helpers', () => {
   });
 });
 
+describe('spec loading errors', () => {
+  const html = '<!doctype html><html><body>Swagger UI</body></html>';
+
+  it('explains when the URL returns an HTML page', async () => {
+    await expect(loadSpec('https://api.example.com/docs?token=secret', async () => jsonResponse(html))).rejects.toThrow(
+      /api\.example\.com\/docs returned an HTML page.*\/openapi\.json/,
+    );
+  });
+
+  it('does not echo the query string of the url', async () => {
+    await expect(loadSpec('https://api.example.com/docs?token=secret', async () => jsonResponse(html))).rejects.not.toThrow(/secret/);
+  });
+
+  it('explains YAML specs, invalid JSON and JSON that is not an OpenAPI spec', async () => {
+    const load = (body) => loadSpec('https://api.example.com/spec', async () => jsonResponse(body));
+
+    await expect(load('openapi: 3.0.0\ninfo:\n  title: x')).rejects.toThrow('YAML');
+    await expect(load('{broken')).rejects.toThrow('not valid JSON');
+    await expect(load({ hello: 'world' })).rejects.toThrow('no "paths"');
+  });
+});
+
 describe('scoring', () => {
   it('penalises by severity and maps to grades', () => {
     expect(score([{ severity: 'high' }, { severity: 'medium' }, { severity: 'low' }])).toBe(76);
