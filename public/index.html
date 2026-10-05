@@ -36,6 +36,8 @@
           <label for="type-api"><span class="seg-k">API</span> <span class="seg-d">from an OpenAPI spec</span></label>
           <input class="sr" type="radio" id="type-web" name="type" value="web">
           <label for="type-web"><span class="seg-k">Web</span> <span class="seg-d">page in a real browser</span></label>
+          <input class="sr" type="radio" id="type-explore" name="type" value="explore">
+          <label for="type-explore"><span class="seg-k">Site</span> <span class="seg-d">crawl and generate tests</span></label>
         </fieldset>
 
         <div class="field">
@@ -45,6 +47,7 @@
           <p class="try">
             <button type="button" class="link" id="example-api">Try the Petstore API</button>
             <button type="button" class="link" id="example-web">Try example.com</button>
+            <button type="button" class="link" id="example-site">Try a practice site</button>
           </p>
         </div>
 
@@ -98,7 +101,7 @@
           <div><dt>Target</dt><dd id="r-target"></dd></div>
           <div><dt>Type</dt><dd id="r-type"></dd></div>
           <div><dt>Scanned</dt><dd id="r-scanned"></dd></div>
-          <div><dt>Requests</dt><dd id="r-count"></dd></div>
+          <div><dt id="r-count-label">Requests</dt><dd id="r-count"></dd></div>
         </dl>
 
         <div class="gauge">
@@ -116,7 +119,7 @@
         <p id="summary" class="note"></p>
         <p id="summary-source" class="meta"></p>
 
-        <h3 class="sec">Findings <span id="findings-count" class="count"></span></h3>
+        <h3 class="sec" id="findings-title">Findings <span id="findings-count" class="count"></span></h3>
         <ol id="findings" class="findings"></ol>
 
         <h3 class="sec" id="requests-title">Requests checked</h3>
@@ -137,6 +140,7 @@
         <div class="actions">
           <button type="button" class="ghost-btn" id="download-md">Download report.md</button>
           <button type="button" class="ghost-btn" id="download-json">Download report.json</button>
+          <button type="button" class="ghost-btn" id="download-spec" hidden>Download generated.spec.js</button>
           <button type="button" class="ghost-btn" id="print">Print</button>
         </div>
       </div>

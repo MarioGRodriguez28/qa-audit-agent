@@ -153,7 +153,7 @@ fieldset.seg { position: relative; display: flex; margin: 0 0 24px; padding: 0; 
 }
 .seg label + input + label { margin-left: -1px; }
 .seg-k { font-size: 0.85rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.seg-d { color: var(--mute); font-size: 0.72rem; }
+.seg-d { color: var(--mute); font-size: 0.7rem; }
 .seg input:checked + label { background: var(--ink); color: var(--panel); }
 .seg input:checked + label .seg-d { color: var(--panel); }
 .seg input:focus-visible + label { outline: 2px solid var(--signal-text); outline-offset: 2px; }

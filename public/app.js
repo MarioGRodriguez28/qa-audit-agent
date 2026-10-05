@@ -4,13 +4,20 @@
   const examples = {
     api: 'https://petstore3.swagger.io/api/v3/openapi.json',
     web: 'https://example.com',
+    explore: 'https://quotes.toscrape.com/',
   };
   const labels = {
     api: ['OpenAPI spec URL (JSON)', 'https://petstore3.swagger.io/api/v3/openapi.json'],
     web: ['Page URL', 'https://example.com'],
+    explore: ['Start URL (same-site pages are crawled)', 'https://quotes.toscrape.com/'],
   };
   const SEVERITY_ORDER = { high: 0, medium: 1, low: 2, info: 3 };
   let lastReport = null;
+  const BUSY_TEXT = {
+    api: 'Running audit.',
+    web: 'Running audit in a real browser. This can take up to a minute.',
+    explore: 'Crawling the site, generating tests and running them. This can take a couple of minutes.',
+  };
   let clockTimer = null;
 
   // Audited data is untrusted, so everything is written with textContent, never as HTML.
@@ -30,6 +37,10 @@
     $('target-label').textContent = labels[type][0];
     $('target').placeholder = labels[type][1];
     $('base-field').hidden = type !== 'api';
+    $('target-help').textContent =
+      type === 'explore'
+        ? 'Same-site pages only (up to 12). Nothing is submitted and nothing is deleted. http(s) only; private addresses are blocked.'
+        : 'http(s) only. Private and local addresses are blocked.';
   }
 
   function startClock() {
@@ -80,12 +91,16 @@
     requestAnimationFrame(() => requestAnimationFrame(() => marker.style.setProperty('--p', String(score))));
   }
 
-  function render({ result, summary, markdown }) {
-    lastReport = { result, summary, markdown };
+  function render({ result, summary, markdown, spec }) {
+    lastReport = { result, summary, markdown, spec };
+    const suite = result.kind === 'suite';
     $('r-target').textContent = result.target;
-    $('r-type').textContent = result.kind === 'frontend' ? 'Web page' : 'API';
+    $('r-type').textContent = suite ? 'Generated suite' : result.kind === 'frontend' ? 'Web page' : 'API';
+    $('r-count-label').textContent = suite ? 'Tests' : 'Requests';
+    $('requests-title').textContent = suite ? 'Pages explored' : 'Requests checked';
+    $('download-spec').hidden = !spec;
     $('r-scanned').textContent = `${new Date(result.scannedAt).toISOString().slice(0, 16).replace('T', ' ')} UTC`;
-    $('r-count').textContent = String(result.endpoints.length);
+    $('r-count').textContent = suite ? `${result.summary.passed}/${result.summary.total} passed` : String(result.endpoints.length);
     $('score').textContent = String(result.score);
     $('grade').textContent = result.grade;
     $('summary').textContent = summary.text;
@@ -96,7 +111,8 @@
     const findings = $('findings');
     findings.replaceChildren();
     $('findings-count').textContent = String(result.findings.length).padStart(2, '0');
-    if (!result.findings.length) findings.append(el('li', { className: 'empty', text: 'No issues found.' }));
+    $('findings-title').firstChild.textContent = suite ? 'Failed tests ' : 'Findings ';
+    if (!result.findings.length) findings.append(el('li', { className: 'empty', text: suite ? 'All generated tests passed.' : 'No issues found.' }));
     [...result.findings]
       .sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity])
       .forEach((f) => {
@@ -151,7 +167,7 @@
     }
     $('results').hidden = true;
     $('empty').hidden = false;
-    setBusy(true, type === 'web' ? 'Running audit in a real browser. This can take up to a minute.' : 'Running audit.');
+    setBusy(true, BUSY_TEXT[type]);
     try {
       const response = await fetch('/api/audit', {
         method: 'POST',
@@ -186,6 +202,11 @@
     syncType();
     $('target').value = examples.api;
   });
+  $('example-site').addEventListener('click', () => {
+    form.elements.type.value = 'explore';
+    syncType();
+    $('target').value = examples.explore;
+  });
   $('example-web').addEventListener('click', () => {
     form.elements.type.value = 'web';
     syncType();
@@ -195,6 +216,7 @@
   $('download-json').addEventListener('click', () =>
     lastReport && download('report.json', JSON.stringify({ ...lastReport.result, summary: lastReport.summary.text }, null, 2), 'application/json'),
   );
+  $('download-spec').addEventListener('click', () => lastReport?.spec && download('generated.spec.js', lastReport.spec, 'text/javascript'));
   $('print').addEventListener('click', () => window.print());
 
   fetch('/api/config')

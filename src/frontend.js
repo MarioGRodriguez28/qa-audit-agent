@@ -72,6 +72,17 @@ function createGuard(context, { allowLocal, lookup }) {
     throw new Error('Too many redirects');
   }
 
+  async function check(startUrl, timeoutMs = 10000) {
+    let current = startUrl;
+    for (let hop = 0; hop <= MAX_HOPS; hop++) {
+      if (!(await isAllowed(current))) throw new Error(`Blocked address: ${new URL(current).host}`);
+      const response = await context.request.get(current, { maxRedirects: 0, failOnStatusCode: false, timeout: timeoutMs });
+      if (!isRedirect(response)) return { status: response.status(), url: current, response };
+      current = new URL(response.headers().location || '', current).toString();
+    }
+    throw new Error('Too many redirects');
+  }
+
   async function install() {
     await context.route('**/*', async (route) => {
       const requestUrl = route.request().url();
@@ -86,7 +97,7 @@ function createGuard(context, { allowLocal, lookup }) {
     });
   }
 
-  return { install, resolveFinalUrl, blockedHosts };
+  return { install, resolveFinalUrl, check, isAllowed, blockedHosts };
 }
 
 async function checkLinks(context, links, { allowLocal, lookup, timeoutMs }) {
@@ -212,4 +223,4 @@ function safeHost(rawUrl) {
   }
 }
 
-module.exports = { auditFrontend };
+module.exports = { auditFrontend, createGuard };

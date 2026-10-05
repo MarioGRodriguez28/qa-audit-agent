@@ -6,3 +6,5 @@ coverage/
 reports/
 .DS_Store
 *.log
+test-results/
+playwright-report/

@@ -4,6 +4,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { auditApi } = require('./audit');
 const { auditFrontend } = require('./frontend');
+const { exploreAndRun } = require('./suite');
 const { summarize } = require('./llm');
 const { toMarkdown } = require('./report');
 
@@ -34,10 +35,13 @@ class HttpError extends Error {
   }
 }
 
-function defaultRunAudit({ type, target, baseUrl }, { allowLocal }) {
-  return type === 'api'
-    ? auditApi({ source: target, baseUrl, allowLocal })
-    : auditFrontend({ url: target, allowLocal });
+async function defaultRunAudit({ type, target, baseUrl }, { allowLocal }) {
+  if (type === 'api') return auditApi({ source: target, baseUrl, allowLocal });
+  if (type === 'explore') {
+    const { result, spec } = await exploreAndRun({ url: target, allowLocal });
+    return { ...result, exportedSpec: spec };
+  }
+  return auditFrontend({ url: target, allowLocal });
 }
 
 function readJson(req) {
@@ -86,7 +90,7 @@ function httpUrl(value, field) {
 
 function parseRequest(body) {
   if (!body || typeof body !== 'object') throw new HttpError(400, 'Body must be a JSON object');
-  if (!['api', 'web'].includes(body.type)) throw new HttpError(400, 'type must be "api" or "web"');
+  if (!['api', 'web', 'explore'].includes(body.type)) throw new HttpError(400, 'type must be "api", "web" or "explore"');
   return {
     type: body.type,
     target: httpUrl(body.target, 'target'),
@@ -152,14 +156,15 @@ function createApp({
 
     active += 1;
     try {
-      let result;
+      let raw;
       try {
-        result = await withTimeout(runAudit(request, { allowLocal }), timeoutMs);
+        raw = await withTimeout(runAudit(request, { allowLocal }), request.type === 'explore' ? timeoutMs * 2 : timeoutMs);
       } catch (error) {
         throw error instanceof HttpError ? error : new HttpError(422, error.message);
       }
+      const { exportedSpec, ...result } = raw;
       const summary = await summarizeFn(result, { apiKey: request.ai ? apiKey : undefined, model });
-      send(res, 200, { result, summary, markdown: toMarkdown(result, summary.text) });
+      send(res, 200, { result, summary, markdown: toMarkdown(result, summary.text), spec: exportedSpec });
     } finally {
       active -= 1;
     }

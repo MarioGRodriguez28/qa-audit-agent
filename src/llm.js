@@ -11,13 +11,22 @@ function buildPrompt(result) {
     '<audit>',
     `Target: ${result.specTitle} (${result.kind === 'frontend' ? 'web page' : 'API'})`,
     `Score: ${result.score}/100 (grade ${result.grade})`,
-    `Items checked: ${result.endpoints.length}`,
+    result.kind === 'suite'
+      ? `Automatically generated tests: ${result.summary.total} (${result.summary.failed} failed) from ${result.site.pages} pages`
+      : `Items checked: ${result.endpoints.length}`,
     ...lines,
     '</audit>',
   ].join('\n');
 }
 
 function fallbackSummary(result) {
+  if (result.kind === 'suite') {
+    const { passed, failed, skipped, total } = result.summary;
+    return (
+      `${result.specTitle}: ${total} tests were generated from ${result.site.pages} explored pages. ` +
+      `${passed} passed, ${failed} failed and ${skipped} were skipped (pass rate ${result.score}%).`
+    );
+  }
   const high = result.findings.filter((f) => f.severity === 'high').length;
   const medium = result.findings.filter((f) => f.severity === 'medium').length;
   return (

@@ -22,6 +22,20 @@ const RESULT = {
   grade: 'B',
 };
 
+const SUITE = {
+  kind: 'suite',
+  target: 'https://acme.example/',
+  specTitle: 'Acme',
+  scannedAt: '2026-10-05T00:00:00.000Z',
+  score: 90,
+  grade: 'A',
+  summary: { total: 10, passed: 9, failed: 1, skipped: 0 },
+  site: { pages: 3, forms: 1, links: 5, apiCalls: 1, skipped: 0, authRequired: false },
+  tests: [],
+  endpoints: [{ endpoint: 'GET /', status: 200, durationMs: 100, issues: 0 }],
+  findings: [{ id: 'x', severity: 'medium', endpoint: 'GET /a', title: 'Page structure: /a', detail: '0 h1 headings (expected 1)' }],
+};
+
 let server;
 let browser;
 let base;
@@ -33,6 +47,7 @@ beforeAll(async () => {
     runAudit: async (request) => {
       calls.push(request);
       if (request.target.includes('refused')) throw new Error('Refusing to audit a local host');
+      if (request.type === 'explore') return { ...SUITE, exportedSpec: '// generated spec' };
       return RESULT;
     },
     summarizeFn: async () => ({ text: 'Summary text', source: 'template' }),
@@ -98,6 +113,25 @@ describe('audit interface', () => {
     await page.getByRole('button', { name: 'Run audit' }).click();
     await page.locator('#score').waitFor();
     expect(calls.at(-1)).toMatchObject({ type: 'web', target: 'https://example.com/' });
+    await page.context().close();
+  });
+
+  it('crawls a site, shows the generated suite and offers the spec for download', async () => {
+    const page = await openPage();
+    expect(await page.locator('#download-spec').isHidden()).toBe(true);
+    await page.locator('label[for="type-explore"]').click();
+    await page.getByRole('button', { name: 'Try a practice site' }).click();
+    expect(await page.locator('#target').inputValue()).toBe('https://quotes.toscrape.com/');
+    await page.getByRole('button', { name: 'Run audit' }).click();
+    await page.locator('#results').waitFor({ state: 'visible' });
+
+    expect(await page.locator('#r-type').innerText()).toBe('Generated suite');
+    expect(await page.locator('#r-count').innerText()).toBe('9/10 passed');
+    expect(await page.locator('#findings-title').textContent()).toContain('Failed tests');
+    expect(await page.locator('#requests-title').textContent()).toBe('Pages explored');
+    expect(calls.at(-1)).toMatchObject({ type: 'explore' });
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download generated.spec.js' }).click()]);
+    expect(download.suggestedFilename()).toBe('generated.spec.js');
     await page.context().close();
   });
 

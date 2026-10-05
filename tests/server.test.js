@@ -151,6 +151,25 @@ describe('POST /api/audit', () => {
     );
   });
 
+  it('supports site exploration and returns the generated spec apart from the result', async () => {
+    const suite = {
+      ...RESULT,
+      kind: 'suite',
+      summary: { total: 1, passed: 1, failed: 0, skipped: 0 },
+      site: { pages: 1, forms: 0, links: 0, apiCalls: 0, skipped: 0, authRequired: false },
+      tests: [],
+      exportedSpec: '// generated spec',
+    };
+    ctx = await start({ runAudit: jest.fn(async () => suite) });
+    const res = await post(ctx.base, { type: 'explore', target: 'https://example.com/' });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.spec).toBe('// generated spec');
+    expect(data.result.exportedSpec).toBeUndefined();
+    expect(data.markdown).toContain('# Generated test suite');
+  });
+
   it('never lets the request turn the local-address guard off', async () => {
     ctx = await start();
     await post(ctx.base, { type: 'web', target: 'https://example.com', allowLocal: true });
