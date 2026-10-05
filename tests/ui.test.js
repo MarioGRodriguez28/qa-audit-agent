@@ -1,0 +1,146 @@
+const { chromium } = require('playwright');
+const { createApp } = require('../src/server');
+const { auditFrontend } = require('../src/frontend');
+
+jest.setTimeout(90000);
+
+const XSS = '<img src=x onerror="window.__xss = 1">';
+const RESULT = {
+  kind: 'api',
+  target: 'https://api.example.com',
+  specTitle: 'Pets API',
+  scannedAt: '2026-10-05T00:00:00.000Z',
+  endpoints: [
+    { endpoint: 'GET /pets', status: 500, durationMs: 120, issues: 1 },
+    { endpoint: 'GET /pets/{id}', status: null, durationMs: 8000, issues: 1 },
+  ],
+  findings: [
+    { id: 'LOW', severity: 'low', endpoint: 'API', title: 'Missing header', detail: 'nosniff' },
+    { id: 'HIGH', severity: 'high', endpoint: 'GET /pets', title: `Server error ${XSS}`, detail: `Returned 500 ${XSS}` },
+  ],
+  score: 78,
+  grade: 'B',
+};
+
+let server;
+let browser;
+let base;
+let calls;
+
+beforeAll(async () => {
+  calls = [];
+  server = createApp({
+    runAudit: async (request) => {
+      calls.push(request);
+      if (request.target.includes('refused')) throw new Error('Refusing to audit a local host');
+      return RESULT;
+    },
+    summarizeFn: async () => ({ text: 'Summary text', source: 'template' }),
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  base = `http://127.0.0.1:${server.address().port}`;
+  browser = await chromium.launch();
+});
+
+afterAll(async () => {
+  await browser.close();
+  await new Promise((resolve) => server.close(resolve));
+});
+
+async function openPage() {
+  const context = await browser.newContext({ acceptDownloads: true });
+  const page = await context.newPage();
+  await page.goto(base);
+  return page;
+}
+
+describe('audit interface', () => {
+  it('runs an audit and shows score, findings sorted by severity and requests', async () => {
+    const page = await openPage();
+    await page.getByLabel('OpenAPI spec URL (JSON)').fill('https://api.example.com/openapi.json');
+    await page.getByRole('button', { name: 'Run audit' }).click();
+
+    await page.locator('#results').waitFor({ state: 'visible' });
+    expect(await page.locator('#score').innerText()).toBe('78');
+    expect(await page.locator('#grade').innerText()).toBe('B');
+    expect(await page.locator('#summary').innerText()).toBe('Summary text');
+    const badges = await page.locator('.findings .badge').allInnerTexts();
+    expect(badges.map((b) => b.toLowerCase())).toEqual(['high', 'low']);
+    expect(await page.locator('#requests tr').count()).toBe(2);
+    expect(await page.locator('#requests tr').nth(1).innerText()).toContain('error');
+    expect(calls.at(-1)).toMatchObject({ type: 'api', target: 'https://api.example.com/openapi.json' });
+    await page.context().close();
+  });
+
+  it('shows untrusted audit data as plain text and never runs it', async () => {
+    const page = await openPage();
+    await page.getByLabel('OpenAPI spec URL (JSON)').fill('https://api.example.com/openapi.json');
+    await page.getByRole('button', { name: 'Run audit' }).click();
+    await page.locator('#score').waitFor();
+
+    expect(await page.locator('.findings').innerText()).toContain('<img src=x');
+    expect(await page.locator('.findings img').count()).toBe(0);
+    expect(await page.evaluate(() => window.__xss)).toBeUndefined();
+    await page.context().close();
+  });
+
+  it('switches to web mode, hides the base URL field and uses the example', async () => {
+    const page = await openPage();
+    await page.getByLabel('Web page in a real browser').check();
+
+    expect(await page.locator('#base-field').isHidden()).toBe(true);
+    await page.getByRole('button', { name: 'Try example.com' }).click();
+    expect(await page.locator('#target').inputValue()).toBe('https://example.com');
+    await page.getByRole('button', { name: 'Run audit' }).click();
+    await page.locator('#score').waitFor();
+    expect(calls.at(-1)).toMatchObject({ type: 'web', target: 'https://example.com/' });
+    await page.context().close();
+  });
+
+  it('shows server errors in an alert and keeps the form usable', async () => {
+    const page = await openPage();
+    await page.getByLabel('OpenAPI spec URL (JSON)').fill('https://refused.example.com/spec.json');
+    await page.getByRole('button', { name: 'Run audit' }).click();
+
+    await expect(page.getByRole('alert').innerText()).resolves.toContain('Refusing to audit');
+    expect(await page.getByRole('button', { name: 'Run audit' }).isEnabled()).toBe(true);
+    expect(await page.locator('#results').isHidden()).toBe(true);
+    await page.context().close();
+  });
+
+  it('asks for a URL instead of sending an empty request', async () => {
+    const page = await openPage();
+    const before = calls.length;
+    await page.getByRole('button', { name: 'Run audit' }).click();
+
+    await expect(page.getByRole('alert').innerText()).resolves.toContain('Enter a URL');
+    expect(calls.length).toBe(before);
+    await page.context().close();
+  });
+
+  it('downloads the report as markdown', async () => {
+    const page = await openPage();
+    await page.getByLabel('OpenAPI spec URL (JSON)').fill('https://api.example.com/openapi.json');
+    await page.getByRole('button', { name: 'Run audit' }).click();
+    await page.locator('#score').waitFor();
+
+    const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download report.md' }).click()]);
+
+    expect(download.suggestedFilename()).toBe('report.md');
+    await page.context().close();
+  });
+
+  it('disables the AI option when the server has no key', async () => {
+    const page = await openPage();
+    await page.locator('#ai-help').waitFor({ state: 'visible' });
+
+    expect(await page.locator('#ai').isDisabled()).toBe(true);
+    await page.context().close();
+  });
+
+  it('passes its own web audit with no medium or high findings', async () => {
+    const result = await auditFrontend({ url: base, allowLocal: true });
+
+    expect(result.findings.filter((f) => ['high', 'medium'].includes(f.severity))).toEqual([]);
+  });
+});

@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QA Audit Agent</title>
+  <meta name="description" content="Audit an API from its OpenAPI spec or a web page in a real browser, and get a scored report.">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top">
+    <p class="brand">QA Audit Agent</p>
+  </header>
+
+  <main>
+    <h1>Audit an API or a web page</h1>
+    <p class="lead">Pick a target, run the checks and get a score from 0 to 100 with a prioritised list of findings.</p>
+
+    <form id="audit-form" novalidate>
+      <fieldset>
+        <legend>What do you want to audit?</legend>
+        <label class="choice"><input type="radio" name="type" value="api" checked> API from an OpenAPI spec</label>
+        <label class="choice"><input type="radio" name="type" value="web"> Web page in a real browser</label>
+      </fieldset>
+
+      <div class="field">
+        <label for="target" id="target-label">OpenAPI spec URL (JSON)</label>
+        <input id="target" name="target" type="url" required autocomplete="off" placeholder="https://petstore3.swagger.io/api/v3/openapi.json" aria-describedby="target-help">
+        <p class="help" id="target-help">Only public http(s) addresses are accepted. Private and local addresses are blocked.</p>
+      </div>
+
+      <div class="field" id="base-field">
+        <label for="base-url">Base URL override (optional)</label>
+        <input id="base-url" name="baseUrl" type="url" autocomplete="off" placeholder="Leave empty to use the server from the spec">
+      </div>
+
+      <label class="choice" id="ai-choice"><input type="checkbox" id="ai" checked> Write the summary with the AI model</label>
+      <p class="help" id="ai-help" hidden>No model key is configured on this server, so the summary comes from a template.</p>
+
+      <div class="actions">
+        <button type="submit" id="run" class="primary">Run audit</button>
+        <button type="button" class="secondary" id="example-api">Try the Petstore API</button>
+        <button type="button" class="secondary" id="example-web">Try example.com</button>
+      </div>
+    </form>
+
+    <p id="error" class="error" role="alert" hidden></p>
+    <p id="status" class="status" role="status"></p>
+
+    <section id="results" class="results" aria-labelledby="results-title" hidden>
+      <h2 id="results-title" tabindex="-1">Results</h2>
+      <div class="scorecard">
+        <p class="score"><span id="score"></span><span class="out-of">/100</span></p>
+        <p class="grade">Grade <strong id="grade"></strong></p>
+        <meter id="score-meter" min="0" max="100" aria-label="Score"></meter>
+      </div>
+      <p id="target-line" class="meta"></p>
+      <h3>Summary</h3>
+      <p id="summary"></p>
+      <p id="summary-source" class="meta"></p>
+      <h3>Findings</h3>
+      <ul id="findings" class="findings"></ul>
+      <h3 id="requests-title">Requests checked</h3>
+      <div class="table-wrap">
+        <table aria-labelledby="requests-title">
+          <thead><tr><th scope="col">Request</th><th scope="col">Status</th><th scope="col">Time</th><th scope="col">Issues</th></tr></thead>
+          <tbody id="requests"></tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button type="button" class="secondary" id="download-md">Download report.md</button>
+        <button type="button" class="secondary" id="download-json">Download report.json</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <p>Checks are deterministic. The AI model only writes the summary.</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>

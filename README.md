@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/MarioGRodriguez28/qa-audit-agent/actions/workflows/test.yml/badge.svg)](https://github.com/MarioGRodriguez28/qa-audit-agent/actions/workflows/test.yml)
 
-Command line tool that audits an API and a web page, scores each from 0 to 100 and writes a report that a non-technical client can read.
+Tool that audits an API and a web page, scores each from 0 to 100 and writes a report that a non-technical client can read. It runs as a command line tool or as a local web interface.
 
 - `api` reads an OpenAPI spec, probes every GET endpoint and checks the responses against the spec.
 - `web` opens a page in a real browser (Playwright) and checks console errors, failed resources, broken links, accessibility (axe-core) and basic SEO.
@@ -20,6 +20,14 @@ npm run audit -- web https://example.com --out reports/example
 ```
 
 Real runs are saved in [examples/petstore](examples/petstore/report.md) and [examples/web-landing](examples/web-landing/report.md).
+
+### Web interface
+
+```bash
+npm run ui          # http://localhost:4317, or PORT=8080 npm run ui
+```
+
+Pick API or web page, run the audit, read the score and findings, and download `report.md` or `report.json`. It listens on 127.0.0.1 only and runs the same checks as the CLI.
 
 To enable the AI summary, copy `.env.example` to `.env` and set `GEMINI_API_KEY`. The file is git-ignored.
 
@@ -73,7 +81,8 @@ The exit code is 2 when there is at least one high severity finding, so it can g
 - The API audit only sends GET requests, so a third-party API is never modified.
 - Targets that are localhost or resolve to private addresses are refused. In the web audit the same guard runs on every request the page makes, and redirects are followed by the tool itself with each hop validated before the browser sees it, so a public page cannot reach internal services directly or through a redirect chain. Links and API endpoints are checked without following redirects.
 - Audit data is sent to the model as untrusted input, and only finding metadata is sent, never response bodies.
-- The API key goes in a request header, not in the URL.
+- The API key goes in a request header, not in the URL, and never reaches the browser: the interface only learns whether a key exists.
+- Web interface: binds to 127.0.0.1, rejects foreign `Host` headers (DNS rebinding) and non-JSON requests (cross-site form posts), accepts only http(s) URLs (so no local file paths), caps the body size, rate limits per client, limits concurrent audits, applies a timeout, and ships a strict Content-Security-Policy. Audited data is rendered as text, never as HTML. The local-address guard can only be switched off with the `ALLOW_LOCAL=1` environment variable, never from a request.
 
 Known limit: addresses are checked before each request, not pinned during it, so a hostile DNS server could still change its answer in between. A public deployment should add network egress rules.
 
@@ -83,11 +92,11 @@ Known limit: addresses are checked before each request, not pinned during it, so
 npm test
 ```
 
-42 tests: scoring, schema validation, SSRF guard, the API audit end to end with the network mocked, and the web audit running a real Chromium against a local fixture server (clean page, broken page, error status, private targets, blocked private sub-requests, and redirects to private addresses including chains).
+78 tests: scoring, schema validation, SSRF guard, the API audit end to end with the network mocked, and the web audit running a real Chromium against a local fixture server (clean page, broken page, error status, private targets, blocked private sub-requests, and redirects to private addresses including chains), the HTTP server (validation, rate limit, concurrency, host and content-type checks), and the interface in a real browser, including a check that it passes its own web audit.
 
 ## Roadmap
 
-- Web interface with a serverless endpoint and rate limiting
+- Public deployment: container image, network egress rules and authentication in front of the interface
 - Multi-page crawl for the web audit
 - Non-GET checks against a sandbox the user owns
 
